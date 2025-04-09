@@ -1,0 +1,14 @@
+{
+  "name": "pingme-api",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "hono": "^4.7.6",
+    "mongoose": "^8.13.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
