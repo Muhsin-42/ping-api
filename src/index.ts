@@ -5,15 +5,14 @@ import {connectDB} from "./config/db";
 import {authRoutes} from "./routes/auth";
 import {env} from "./config/env.config";
 import {jwt} from "hono/jwt";
-import userRoutes from "./routes/user.routes";
-import {compress} from "hono/compress";
-
+import {urlRoutes} from "./routes/urls.routes";
+import {pingService} from "./services/ping.service";
+import urlsModel from "./models/urls.model";
 const app = new Hono();
 
 // Global middlewares
 app.use("*", logger());
 app.use("*", poweredBy());
-app.use(compress());
 
 // Health Check
 app.get("/", (c) => c.text("✅ API is live"));
@@ -22,6 +21,11 @@ app.get("/health", (c) => c.text("🏥 Ping is live and kicking!"));
 connectDB()
   .then(() => {
     console.log("✅ MongoDB connected");
+
+    pingService
+      .initialize()
+      .then(() => console.log("Ping service initialized"))
+      .catch((err) => console.error("Error initializing ping service:", err));
 
     // Auth routes
     app.route("/auth", authRoutes);
@@ -35,7 +39,7 @@ connectDB()
     });
 
     // User routes
-    app.route("/api/user", userRoutes);
+    app.route("/api/urls", urlRoutes);
   })
   .catch((error) => {
     console.error("❌ DB connection error:", error.message);
@@ -43,6 +47,8 @@ connectDB()
       c.text("❌ DB connection error: " + error.message, 500)
     );
   });
+
+setupUrlHooks();
 
 // Catch-all 404
 app.notFound((c) =>
@@ -61,3 +67,30 @@ export default {
   port: env.PORT,
   fetch: app.fetch,
 };
+
+function setupUrlHooks() {
+  // When a URL is created
+  urlsModel.schema.post("save", async function (doc) {
+    if (doc.isActive) {
+      await pingService.scheduleUrl(doc);
+    }
+  });
+
+  // When a URL is updated
+  urlsModel.schema.post("findOneAndUpdate", async function (doc) {
+    if (doc) {
+      if (doc.isActive) {
+        await pingService.updateUrlSchedule(doc);
+      } else {
+        await pingService.cancelUrl(doc._id.toString());
+      }
+    }
+  });
+
+  // When a URL is deleted
+  urlsModel.schema.post("findOneAndDelete", async function (doc) {
+    if (doc) {
+      await pingService.cancelUrl(doc._id.toString());
+    }
+  });
+}

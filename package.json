@@ -4,7 +4,10 @@
     "dev": "bun run --hot src/index.ts"
   },
   "dependencies": {
+    "@types/compression": "^1.7.5",
+    "axios": "^1.8.4",
     "bcryptjs": "^3.0.2",
+    "compression": "^1.8.0",
     "hono": "^4.7.6",
     "mongoose": "^8.13.2"
   },
