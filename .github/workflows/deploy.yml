@@ -43,26 +43,38 @@ jobs:
         username: ubuntu
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
-        script_stop: true
         debug: true
         command_timeout: 20m
         script: |
           echo "Starting deployment script"
+          
+          # Install Docker if not installed
+          if ! command -v docker &> /dev/null; then
+            echo "Docker not found, installing..."
+            sudo apt update
+            sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+            curl -fsSL https://get.docker.com -o get-docker.sh
+            sudo sh get-docker.sh
+            sudo usermod -aG docker ubuntu
+            # Docker has been installed, but we need to use it in the current session
+            # so we'll run docker commands with sudo
+          fi
+          
           # Login to GitHub Container Registry
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           # Pull the latest image
           echo "Pulling image ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_NAME }}:latest"
-          docker pull ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_NAME }}:latest
+          sudo docker pull ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_NAME }}:latest
           
           # Stop and remove existing container if it exists
           echo "Stopping existing container"
-          docker stop pingme-api || true
-          docker rm pingme-api || true
+          sudo docker stop pingme-api || true
+          sudo docker rm pingme-api || true
           
           # Run the new container
           echo "Starting new container"
-          docker run -d \
+          sudo docker run -d \
             --name pingme-api \
             -p 4000:4000 \
             -e MONGODB_URI="${{ secrets.MONGODB_URI }}" \
@@ -73,4 +85,35 @@ jobs:
           
           # Clean up unused images
           echo "Cleaning up unused images"
-          docker system prune -af
+          sudo docker system prune -af
+          
+          # Setup Nginx if not already set up
+          if ! command -v nginx &> /dev/null; then
+            echo "Setting up Nginx..."
+            sudo apt update
+            sudo apt install -y nginx
+            
+            # Configure Nginx
+            sudo tee /etc/nginx/sites-available/pingme-api > /dev/null << EOL
+server {
+    listen 80;
+    server_name 3.80.99.26;
+
+    location / {
+        proxy_pass http://localhost:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+EOL
+            
+            # Enable the site and restart Nginx
+            sudo ln -sf /etc/nginx/sites-available/pingme-api /etc/nginx/sites-enabled/
+            sudo rm -f /etc/nginx/sites-enabled/default
+            sudo nginx -t && sudo systemctl restart nginx
+          fi
+          
+          echo "Deployment completed successfully!"
