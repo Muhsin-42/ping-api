@@ -42,18 +42,26 @@ jobs:
         host: 3.80.99.26
         username: ubuntu
         key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script_stop: true
+        debug: true
+        command_timeout: 20m
         script: |
+          echo "Starting deployment script"
           # Login to GitHub Container Registry
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           # Pull the latest image
+          echo "Pulling image ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_NAME }}:latest"
           docker pull ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_NAME }}:latest
           
           # Stop and remove existing container if it exists
+          echo "Stopping existing container"
           docker stop pingme-api || true
           docker rm pingme-api || true
           
           # Run the new container
+          echo "Starting new container"
           docker run -d \
             --name pingme-api \
             -p 4000:4000 \
@@ -64,4 +72,5 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_NAME }}:latest
           
           # Clean up unused images
+          echo "Cleaning up unused images"
           docker system prune -af
