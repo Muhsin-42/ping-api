@@ -7,6 +7,10 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Add this permissions block to grant write access to packages
+    permissions:
+      contents: read
+      packages: write
     
     steps:
     - uses: actions/checkout@v4
