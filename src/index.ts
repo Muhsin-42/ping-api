@@ -8,11 +8,13 @@ import {jwt} from "hono/jwt";
 import {urlRoutes} from "./routes/urls.routes";
 import {pingService} from "./services/ping.service";
 import urlsModel from "./models/urls.model";
+import {cors} from "hono/cors";
 const app = new Hono();
 
 // Global middlewares
 app.use("*", logger());
 app.use("*", poweredBy());
+app.use("*", cors());
 
 // Health Check
 app.get("/", (c) => c.text("✅ API is live"));

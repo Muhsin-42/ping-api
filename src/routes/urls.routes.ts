@@ -1,7 +1,5 @@
 // routes/url.routes.ts
 import {Hono} from "hono";
-import {jwt} from "hono/jwt";
-import {env} from "../config/env.config";
 import {
   addUrl,
   getAllUrls,
