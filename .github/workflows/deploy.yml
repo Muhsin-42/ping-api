@@ -25,7 +25,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ format('{0}/{1}', github.repository_owner, github.event.repository.name) }}:latest
+          tags-lowercase: true
 
       - name: Deploy to AWS
         uses: appleboy/ssh-action@master
@@ -38,7 +39,8 @@ jobs:
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Pull the latest image
-            docker pull ghcr.io/${{ github.repository }}:latest
+            IMAGE_NAME=$(echo "ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest" | tr '[:upper:]' '[:lower:]')
+            docker pull $IMAGE_NAME
 
             # Stop and remove existing container if it exists
             docker stop pingme-api || true
@@ -52,7 +54,7 @@ jobs:
               -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               -e PORT=4000 \
               --restart unless-stopped \
-              ghcr.io/${{ github.repository }}:latest
+              $IMAGE_NAME
 
             # Clean up unused images
             docker system prune -af
